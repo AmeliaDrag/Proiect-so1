@@ -1,0 +1,27 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <time.h>
+#include <errno.h>
+
+// constante
+
+#define MAX      200
+#define MAX_PATH 300
+#define MAX_LOG  500
+
+//structura mea principala
+typedef struct {
+    int    report_id;
+    char   inspector_name[100];
+    float  lat;
+    float  longi;
+    char   category[50];
+    int    severity_level;    /* 1=minor, 2=moderat, 3=critic */
+    time_t Timestamp;
+    char   description_text[100];
+} Report;
