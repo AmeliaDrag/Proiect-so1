@@ -61,7 +61,7 @@ void mode_to_string(mode_t mode, char *str)
 }
 
 
-//Aceasta "lipsește" numele districtului de numele fișierului, creând o cale completă pe care sistemul de operare o poate înțelege.
+//Aceasta lipsește cumva numele districtului de numele fișierului, creând o cale completă pe care sistemul de operare o poate înțelege.
 void construieste_cai(const char *dist)
 {
   //in path reports se salveaza destinatia finala, daca nu trece de max path
@@ -72,8 +72,8 @@ void construieste_cai(const char *dist)
 
 //verificarea permisiunilor
 //Verifica daca fisierul 'path' are bitul 'bit_necesar' setat.
-// manager  = owner  → testam bitii USER  (ex: S_IWUSR)
-// inspector = group → testam bitii GROUP (ex: S_IWGRP)
+// manager  = owner  - testam bitii USER  (ex: S_IWUSR)
+// inspector = group - testam bitii GROUP (ex: S_IWGRP)
 // Returneaza 1 daca are acces, 0 daca nu.
 
 int verifica_permisiune(const char *path, mode_t bit_necesar, const char *actiune)
@@ -234,7 +234,79 @@ void creaza_district_daca_lipseste()
     creaza_log();
 }
 
-//urmatorul punct: lets say 6:
+//Creeaza sau actualizeaza legatura simbolica:
+//Dangling înseamnă o legătură simbolică a cărei destinație nu mai există.
+//  active_reports-<district>  <district>/reports.dat
+// Folosim lstat() pentru a detecta legatura in sine (nu o urmam).
+// Daca e "dangling" (destinatie disparuta), o stergem si o refacem.
+//Detectarea dangling links dacă ștergi un district dar symlink-ul rămâne, programul trebuie să afișeze warning în loc să crape
+
+void gestioneaza_symlink()
+{
+    char nume_symlink[MAX_PATH];
+    snprintf(nume_symlink, MAX_PATH, "active_reports-%s", district);
+
+    struct stat lst;
+    //Verificăm dacă există ceva cu numele "active_reports-downtown"
+    if (lstat(nume_symlink, &lst) == 0) {
+        
+        if (S_ISLNK(lst.st_mode)) {
+            struct stat st;
+            if (stat(nume_symlink, &st) == -1) {
+	      //Dacă legătura e dangling, afișăm un warning pe stderr și o ștergem cu unlink(). unlink() șterge legătura în sine, nu destinația
+                fprintf(stderr, "ATENTIE: '%s' e dangling. Refacem \n", nume_symlink);
+                unlink(nume_symlink);
+                
+            } else {
+                return; 
+            }
+        }
+	//Dacă S_ISLNK() a returnat fals înseamnă că există un fișier normal sau director cu același nume ca symlink-ul nostru
+	else {
+            fprintf(stderr, "ATENTIE: '%s' exista dar nu e symlink!\n", nume_symlink);
+            return;
+        }
+    }
+
+    
+    if (symlink(path_reports, nume_symlink) == -1) {
+        perror("Eroare la crearea legaturii simbolice");
+    } 
+}
+
+//fara functia citeste threshold programul nu ar ști care e pragul setat de manager și nu ar putea decide dacă să afișeze alerta sau nu gen extrage o valoare dintr-un fișier , dar numai dacă utilizatorul curent are drepturile necesare.
+int citeste_threshold()
+{
+    mode_t bit = (strcmp(role, "manager") == 0) ? S_IRUSR : S_IRGRP;
+    if (!verifica_permisiune(path_cfg, bit, "citi district.cfg")) return 1;
+    FILE *f = fopen(path_cfg, "r");
+    if (!f) return 1;
+    int threshold = 1;
+    char linie[64];
+    while (fgets(linie, sizeof(linie), f)) {
+        if (sscanf(linie, "threshold=%d", &threshold) == 1) break;
+    }
+    fclose(f);
+    return threshold;
+
+//urmatorul punct: 
+
+
+//operations
+//add
+void comanda_add(){
+  creaza_district_daca_lipseste();
+  //determinam ce bit de permisiune trebuie verificat in functie de rol.
+  //group verifica, s_iwgrp
+  //owner verificam s_iwusr
+  mode_t bit = (strcmp(role, "manager") == 0) ? S_IWUSR : S_IWGRP;
+
+  //verifica daca rolul curent are drept de scriere
+  if (!verifica_permisiune(path_reports, bit, "scrie in reports.dat")) {
+        exit(EXIT_FAILURE);
+    }
+  
+}
 
 
 
