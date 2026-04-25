@@ -1,0 +1,16 @@
+Ce tool am folosit?
+
+Toolul de care m-am folosit in crearea celor 2 functii a fost Gemini, insa nu am fost multumita de rezultat si am ajuns sa folosesc si Claude.ai.
+
+Care au fost prompturile date?
+
+"Buna gemini, am un proiect. Am construit un program în C pe Linux care gestionează rapoarte de infrastructură urbană organizate pe districte.
+
+Programul stochează rapoartele în fișiere binare cu înregistrări de dimensiune fixă, gestionează permisiunile fișierelor prin apeluri de sistem (chmod, stat), și implementează două roluri manager și inspector cu drepturi diferite de acces. Are comenzi pentru adăugare, listare, vizualizare, ștergere și filtrare de rapoarte, plus un sistem de jurnalizare a acțiunilor și legături simbolice către fișierele de rapoarte ale fiecărui district.t momentan am codul asta scris: *insert la tot codul copiat scris pana atunci*"
+
+ulterior i-am sugerat o versiune mai robusta, a modificat folosirea strokului, insa dupa ce am copiat aveam destul de multe warrninguri asa ca am copiat tot codul si dat la Claude.ai unde l-am rugat sa-mi explice de unde apar warrningurile, in urma sugestilor oferite de Claude.ai am incercat sa modific codul astfel incat sa copileze.
+
+
+
+
+

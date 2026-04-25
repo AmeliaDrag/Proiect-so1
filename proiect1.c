@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -288,100 +290,96 @@ int citeste_threshold()
   }
   fclose(f);
   return threshold;
+}
 
-  //urmatorul punct: 
+void comanda_add()
+{
+  creaza_district_daca_lipseste();
+  //determinam ce bit de permisiune trebuie verificat in functie de rol.
+  //group verifica, s_iwgrp
+  //owner verificam s_iwusr
+  mode_t bit = (strcmp(role, "manager") == 0) ? S_IWUSR : S_IWGRP;
 
-
-  //operations
-  //add
-  void comanda_add(){
-    creaza_district_daca_lipseste();
-    //determinam ce bit de permisiune trebuie verificat in functie de rol.
-    //group verifica, s_iwgrp
-    //owner verificam s_iwusr
-    mode_t bit = (strcmp(role, "manager") == 0) ? S_IWUSR : S_IWGRP;
-
-    //verifica daca rolul curent are drept de scriere
-    if (!verifica_permisiune(path_reports, bit, "scrie in reports.dat")) {
-      exit(EXIT_FAILURE);
-    }
-    struct stat st;
-    int nr_rapoarte = 0;
-
-    //calculam cate raoarte exista deja
-    if (stat(path_reports, &st) == 0) {
-      nr_rapoarte = (int)(st.st_size / sizeof(Report));
-    }
-
-    //declaram structura pt noul rap
-    Report r;
-    memset(&r, 0, sizeof(Report));
-
-    r.report_id = nr_rapoarte + 1;
-    strncpy(r.inspector_name, user_name, sizeof(r.inspector_name) - 1);
-    r.Timestamp = time(NULL);
-    printf("=== Adaugare raport #%d in districtul '%s' ===\n", r.report_id, district);
-    printf("Latitudine GPS  : ");
-    fflush(stdout); // fflush(stdout) forțează afișarea textului înainte ca scanf să aștepte input 
-    scanf("%f", &r.lat);
-
-    printf("Longitudine GPS : ");
-    fflush(stdout);
-    scanf("%f", &r.longi);
-
-    printf("Categorie (road/lighting/flooding/other): ");
-    fflush(stdout);
-    scanf("%49s", r.category);
-
-    printf("Severitate (1=minor, 2=moderat, 3=critic): ");
-    fflush(stdout);
-    scanf("%d", &r.severity_level);
-
-    if (r.severity_level < 1 || r.severity_level > 3) {
-      fprintf(stderr, "EROARE: Severitatea trebuie sa fie 1, 2 sau 3.\n");
-      exit(EXIT_FAILURE);
-    }
-
-    int c;
-    while ((c = getchar()) != '\n' && c != EOF);
-
-    printf("Descriere: ");
-    fflush(stdout);
-    if (fgets(r.description_text, sizeof(r.description_text), stdin)) {
-      size_t len = strlen(r.description_text);
-      if (len > 0 && r.description_text[len - 1] == '\n')
-	r.description_text[len - 1] = '\0';
-    }
-
-    int fd = open(path_reports, O_WRONLY | O_APPEND);
-    if (fd == -1) {
-      perror("Eroare open reports.dat");
-      exit(EXIT_FAILURE);
-    }
-
-    if (write(fd, &r, sizeof(Report)) != (ssize_t)sizeof(Report)) {
-      perror("Eroare la scriere");
-      close(fd);
-      exit(EXIT_FAILURE);
-    }
-
-    close(fd);
-    chmod(path_reports, PERM_REPORTS);
-
-    printf("Raportul #%d a fost adaugat cu succes.\n", r.report_id);
-
-    int threshold = citeste_threshold();
-    if (r.severity_level >= threshold) {
-      printf("* ALERTA: Raportul #%d are severitate %d >= prag %d *\n",
-	     r.report_id, r.severity_level, threshold);
-    }
-    // Enutul cere ca fiecare acțiune să fie înregistrată cu timestamp rol și utilixator.
-    char mesaj_log[MAX_LOG];
-    snprintf(mesaj_log, MAX_LOG, "add district=%s report_id=%d", district, r.report_id);
-    scrie_in_log(mesaj_log);
-
-    gestioneaza_symlink();
+  //verifica daca rolul curent are drept de scriere
+  if (!verifica_permisiune(path_reports, bit, "scrie in reports.dat")) {
+    exit(EXIT_FAILURE);
   }
+  struct stat st;
+  int nr_rapoarte = 0;
+
+  //calculam cate raoarte exista deja
+  if (stat(path_reports, &st) == 0) {
+    nr_rapoarte = (int)(st.st_size / sizeof(Report));
+  }
+
+  //declaram structura pt noul rap
+  Report r;
+  memset(&r, 0, sizeof(Report));
+
+  r.report_id = nr_rapoarte + 1;
+  strncpy(r.inspector_name, user_name, sizeof(r.inspector_name) - 1);
+  r.Timestamp = time(NULL);
+  printf("=== Adaugare raport #%d in districtul '%s' ===\n", r.report_id, district);
+  printf("Latitudine GPS  : ");
+  fflush(stdout); // fflush(stdout) forțează afișarea textului înainte ca scanf să aștepte input 
+  scanf("%f", &r.lat);
+
+  printf("Longitudine GPS : ");
+  fflush(stdout);
+  scanf("%f", &r.longi);
+
+  printf("Categorie (road/lighting/flooding/other): ");
+  fflush(stdout);
+  scanf("%49s", r.category);
+
+  printf("Severitate (1=minor, 2=moderat, 3=critic): ");
+  fflush(stdout);
+  scanf("%d", &r.severity_level);
+
+  if (r.severity_level < 1 || r.severity_level > 3) {
+    fprintf(stderr, "EROARE: Severitatea trebuie sa fie 1, 2 sau 3.\n");
+    exit(EXIT_FAILURE);
+  }
+
+  int c;
+  while ((c = getchar()) != '\n' && c != EOF);
+
+  printf("Descriere: ");
+  fflush(stdout);
+  if (fgets(r.description_text, sizeof(r.description_text), stdin)) {
+    size_t len = strlen(r.description_text);
+    if (len > 0 && r.description_text[len - 1] == '\n')
+      r.description_text[len - 1] = '\0';
+  }
+
+  int fd = open(path_reports, O_WRONLY | O_APPEND);
+  if (fd == -1) {
+    perror("Eroare open reports.dat");
+    exit(EXIT_FAILURE);
+  }
+
+  if (write(fd, &r, sizeof(Report)) != (ssize_t)sizeof(Report)) {
+    perror("Eroare la scriere");
+    close(fd);
+    exit(EXIT_FAILURE);
+  }
+
+  close(fd);
+  chmod(path_reports, PERM_REPORTS);
+
+  printf("Raportul #%d a fost adaugat cu succes.\n", r.report_id);
+
+  int threshold = citeste_threshold();
+  if (r.severity_level >= threshold) {
+    printf("* ALERTA: Raportul #%d are severitate %d >= prag %d *\n",
+	   r.report_id, r.severity_level, threshold);
+  }
+  // Enutul cere ca fiecare acțiune să fie înregistrată cu timestamp rol și utilixator.
+  char mesaj_log[MAX_LOG];
+  snprintf(mesaj_log, MAX_LOG, "add district=%s report_id=%d", district, r.report_id);
+  scrie_in_log(mesaj_log);
+
+  gestioneaza_symlink();
 }
 
 void comanda_list()
@@ -448,6 +446,7 @@ void comanda_list()
     close(fd);
     scrie_in_log("list");
 }
+
 void comanda_view(int id_cautat)
 {
     struct stat st;
@@ -485,7 +484,7 @@ void comanda_view(int id_cautat)
     const char *sev = (r.severity_level == 1) ? "minor (1)" :
                       (r.severity_level == 2) ? "moderat (2)" : "critic (3)";
 
-    printf("=== Raport #%d – District: %s ===\n", r.report_id, district);
+    printf("=== Raport #%d - District: %s ===\n", r.report_id, district);
     printf("Inspector    : %s\n",        r.inspector_name);
     printf("GPS          : %.6f, %.6f\n", r.lat, r.longi);
     printf("Categorie    : %s\n",        r.category);
@@ -497,6 +496,7 @@ void comanda_view(int id_cautat)
     snprintf(mesaj_log, MAX_LOG, "view district=%s report_id=%d", district, id_cautat);
     scrie_in_log(mesaj_log);
 }
+
 void comanda_remove_report(int id_de_sters)
 {
     if (strcmp(role, "manager") != 0) {
@@ -530,7 +530,6 @@ void comanda_remove_report(int id_de_sters)
         perror("Eroare citire"); free(rapoarte); close(fd); exit(EXIT_FAILURE);
     }
 
-    
     int idx = -1;
     for (int i = 0; i < nr; i++) {
         if (rapoarte[i].report_id == id_de_sters) { idx = i; break; }
@@ -540,10 +539,8 @@ void comanda_remove_report(int id_de_sters)
         free(rapoarte); close(fd); exit(EXIT_FAILURE);
     }
 
-    
     // Mutam fiecare inregistrare de dupa cea stearsa cu o pozitie mai in fata.
     // lseek() pozitioneaza exact unde trebuie sa scriem.
-     
     for (int i = idx; i < nr - 1; i++) {
         off_t pozitie = (off_t)i * (off_t)sizeof(Report);
         if (lseek(fd, pozitie, SEEK_SET) == -1) {
@@ -563,7 +560,6 @@ void comanda_remove_report(int id_de_sters)
     free(rapoarte);
     close(fd);
 
-   
     struct stat st2;
     stat(path_reports, &st2);
     printf("Raportul #%d sters din '%s'. Rapoarte ramase: %d\n",
@@ -576,6 +572,7 @@ void comanda_remove_report(int id_de_sters)
              district, id_de_sters);
     scrie_in_log(mesaj_log);
 }
+
 void comanda_update_threshold(int valoare_noua)
 {
     if (strcmp(role, "manager") != 0) {
@@ -625,17 +622,243 @@ void comanda_update_threshold(int valoare_noua)
     scrie_in_log(mesaj_log);
 }
 
+int parse_condition(const char *input, char *field, char *op, char *value) {
+    if (!input) return 0;
 
+    const char *p1 = strchr(input, ':');
+    if (!p1) return 0;
+
+    size_t field_len = p1 - input;
+    if (field_len == 0 || field_len >= 50) return 0;
+    
+    strncpy(field, input, field_len);
+    field[field_len] = '\0';
+
+    const char *op_start = p1 + 1;
+    int op_len = 0;
+
+   
+    if (strncmp(op_start, "==", 2) == 0 || strncmp(op_start, "!=", 2) == 0 ||
+        strncmp(op_start, "<=", 2) == 0 || strncmp(op_start, ">=", 2) == 0) {
+        op_len = 2;
+    } 
+    else if (*op_start == '<' || *op_start == '>') {
+        op_len = 1;
+    } else {
+        return 0; 
+    }
+
+    strncpy(op, op_start, op_len);
+    op[op_len] = '\0';
+
+    const char *p2 = op_start + op_len;
+    if (*p2 != ':' || *(p2 + 1) == '\0') return 0;
+
+    strncpy(value, p2 + 1, 99);
+    value[99] = '\0';
+
+    return 1;
+}
+
+int match_condition(Report *r, const char *field, const char *op, const char *value) {
+    
+    if (strcmp(field, "severity") == 0) {
+        long val = strtol(value, NULL, 10);
+        if (strcmp(op, "==") == 0) return r->severity_level == (int)val;
+        if (strcmp(op, "!=") == 0) return r->severity_level != (int)val;
+        if (strcmp(op, ">=") == 0) return r->severity_level >= (int)val;
+        if (strcmp(op, "<=") == 0) return r->severity_level <= (int)val;
+        if (strcmp(op, ">")  == 0) return r->severity_level >  (int)val;
+        if (strcmp(op, "<")  == 0) return r->severity_level <  (int)val;
+    } 
+    else if (strcmp(field, "category") == 0) {
+        int cmp = strcmp(r->category, value);
+        if (strcmp(op, "==") == 0) return cmp == 0;
+        if (strcmp(op, "!=") == 0) return cmp != 0;
+    }
+    else if (strcmp(field, "inspector") == 0) {
+        int cmp = strcmp(r->inspector_name, value);
+        if (strcmp(op, "==") == 0) return cmp == 0;
+        if (strcmp(op, "!=") == 0) return cmp != 0;
+    }
+    else if (strcmp(field, "report_id") == 0) {
+        long val = strtol(value, NULL, 10);
+        if (strcmp(op, "==") == 0) return r->report_id == (int)val;
+        if (strcmp(op, "!=") == 0) return r->report_id != (int)val;
+    }
+
+    return 0; 
+}
+
+void comanda_filter(int nr_conditii, char **conditii)
+{
+    mode_t bit = (strcmp(role, "manager") == 0) ? S_IRUSR : S_IRGRP;
+    if (!verifica_permisiune(path_reports, bit, "citire rapoarte")) {
+        return;
+    }
+
+    int fd = open(path_reports, O_RDONLY);
+    if (fd == -1) {
+        perror("Eroare deschidere reports.dat");
+        return;
+    }
+
+    printf("=== Filtrare District: %s ===\n", district);
+    
+    Report r;
+    int gasite = 0;
+    int total = 0;
+
+    while (read(fd, &r, sizeof(Report)) == (ssize_t)sizeof(Report)) {
+        total++;
+        int ok = 1;
+
+        
+        for (int i = 0; i < nr_conditii; i++) {
+            char f[50], o[10], v[100];
+            
+            if (parse_condition(conditii[i], f, o, v)) {
+                if (!match_condition(&r, f, o, v)) {
+                    ok = 0;
+                    break; 
+                }
+            } else {
+                fprintf(stderr, "Filtru invalid ignorat: %s\n", conditii[i]);
+            }
+        }
+
+        if (ok) {
+            char data_str[20];
+            struct tm *info = localtime(&r.Timestamp);
+            strftime(data_str, sizeof(data_str), "%Y-%m-%d %H:%M", info);
+
+            printf("[%d] %-10s | Sev: %d | Data: %s | Desc: %s\n",
+                   r.report_id, r.category, r.severity_level, data_str, r.description_text);
+            gasite++;
+        }
+    }
+
+    printf("\nRezultat: %d rapoarte gasite dintr-un total de %d analizate.\n", gasite, total);
+    
+    close(fd);
+
+    char log_msg[MAX_LOG];
+    snprintf(log_msg, MAX_LOG, "FILTER: district=%s, matches=%d, filters=%d", 
+             district, gasite, nr_conditii);
+    scrie_in_log(log_msg);
+}
+
+void afiseaza_utilizare(const char *prog)
+{
+    fprintf(stderr,
+        "Utilizare: %s --role <manager|inspector> --user <nume> <comanda> [args]\n"
+        "Comenzi:\n"
+        "  --add              <district>\n"
+        "  --list             <district>\n"
+        "  --view             <district> <id>\n"
+        "  --remove_report    <district> <id>\n"
+        "  --update_threshold <district> <valoare>\n"
+        "  --filter           <district> <cond1> [cond2 ...]\n"
+        "Format conditie: camp:operator:valoare\n"
+        "  Campuri: severity, category, inspector, report_id\n"
+        "  Operatori: ==, !=, <, <=, >, >=\n", prog);
+}
 
 int main(int argc, char* argv[]){
   if(argc <2){
     printf("utilizati %s ", argv[0]);
     return 1;
   }
-  // Construim caile o singura data
+ 
+  char comanda[MAX] = "";
+  int  arg_extra    = 0;  
+
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "--role") == 0 && i+1 < argc) {
+      strncpy(role, argv[++i], MAX-1);
+    } else if (strcmp(argv[i], "--user") == 0 && i+1 < argc) {
+      strncpy(user_name, argv[++i], MAX-1);
+    } else if (strcmp(argv[i], "--add") == 0 && i+1 < argc) {
+      strncpy(comanda, "add", MAX-1);
+      strncpy(district, argv[++i], MAX-1);
+      arg_extra = i + 1;
+    } else if (strcmp(argv[i], "--list") == 0 && i+1 < argc) {
+      strncpy(comanda, "list", MAX-1);
+      strncpy(district, argv[++i], MAX-1);
+      arg_extra = i + 1;
+    } else if (strcmp(argv[i], "--view") == 0 && i+1 < argc) {
+      strncpy(comanda, "view", MAX-1);
+      strncpy(district, argv[++i], MAX-1);
+      arg_extra = i + 1;
+    } else if (strcmp(argv[i], "--remove_report") == 0 && i+1 < argc) {
+      strncpy(comanda, "remove_report", MAX-1);
+      strncpy(district, argv[++i], MAX-1);
+      arg_extra = i + 1;
+    } else if (strcmp(argv[i], "--update_threshold") == 0 && i+1 < argc) {
+      strncpy(comanda, "update_threshold", MAX-1);
+      strncpy(district, argv[++i], MAX-1);
+      arg_extra = i + 1;
+    } else if (strcmp(argv[i], "--filter") == 0 && i+1 < argc) {
+      strncpy(comanda, "filter", MAX-1);
+      strncpy(district, argv[++i], MAX-1);
+      arg_extra = i + 1;
+    }
+  }
+
+  //Verifică că utilizatorul a dat toate argumentele obligatorii și că rolul e valid.
+  if (strlen(role) == 0) {
+    fprintf(stderr, "EROARE: --role este obligatoriu.\n"); return 1;
+  }
+  if (strcmp(role,"manager") != 0 && strcmp(role,"inspector") != 0) {
+    fprintf(stderr, "EROARE: --role trebuie sa fie 'manager' sau 'inspector'.\n"); return 1;
+  }
+  if (strlen(user_name) == 0) {
+    fprintf(stderr, "EROARE: --user este obligatoriu.\n"); return 1;
+  }
+  if (strlen(comanda) == 0) {
+    fprintf(stderr, "EROARE: Nicio comanda specificata.\n");
+    afiseaza_utilizare(argv[0]); return 1;
+  }
+
+  // Construim caile o singura data 
   construieste_cai(district);
 
-    
+  if (strcmp(comanda, "add") == 0) {
+    comanda_add();
+  } else if (strcmp(comanda, "list") == 0) {
+    comanda_list();
+  } else if (strcmp(comanda, "view") == 0) {
+    if (arg_extra >= argc) { fprintf(stderr, "EROARE: lipseste report_id.\n"); return 1; }
+    comanda_view(atoi(argv[arg_extra]));
+  } else if (strcmp(comanda, "remove_report") == 0) {
+    if (arg_extra >= argc) { fprintf(stderr, "EROARE: lipseste report_id.\n"); return 1; }
+    comanda_remove_report(atoi(argv[arg_extra]));
+  } else if (strcmp(comanda, "update_threshold") == 0) {
+    if (arg_extra >= argc) { fprintf(stderr, "EROARE: lipseste valoarea.\n"); return 1; }
+    comanda_update_threshold(atoi(argv[arg_extra]));
+  } else if (strcmp(comanda, "filter") == 0) {
+    int nr = argc - arg_extra;
+    if (nr <= 0) { fprintf(stderr, "EROARE: lipseste conditia.\n"); return 1; }
+    comanda_filter(nr, argv + arg_extra);
+  }
+
   return 0;
-    
 }
+
+//comenzi rurale:
+/*
+  compilare: gcc -Wall -Wextra -std=c99 -o city_manager proiect1.c
+
+  rurale:
+  2 districte: 
+  ./city_manager --role manager --user alice --add downtown
+  ./city_manager --role manager --user alice --add northside
+
+  verificarea functilor:
+  ./city_manager --role inspector --user bob --list downtown
+  ./city_manager --role manager --user alice --view downtown 1
+  ./city_manager --role inspector --user bob --filter downtown 'severity:>=:2'
+  ./city_manager --role manager --user alice --update_threshold downtown 2
+  ./city_manager --role manager --user alice --remove_report downtown 1
+
+  
