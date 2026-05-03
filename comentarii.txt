@@ -1,0 +1,2 @@
+//sigaction in loc de signal.
+//start adaugam in city manager o noua comanda
