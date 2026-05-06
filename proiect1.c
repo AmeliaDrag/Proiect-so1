@@ -9,6 +9,8 @@
 #include <sys/types.h>
 #include <time.h>
 #include <errno.h>
+#include<signal.h>
+#include<sys/wait.h>
 
 // constante
 
@@ -380,6 +382,24 @@ void comanda_add()
   scrie_in_log(mesaj_log);
 
   gestioneaza_symlink();
+
+  // Notificam monitorul prin SIGUSR1
+    char buf_pid[32];
+    int fd_pid = open(".monitor_pid", O_RDONLY);
+    if (fd_pid == -1) {
+      //daca fisierul nu exista, monitorul nu ruleaza
+        scrie_in_log("add - monitor nu ruleaza");
+    } else {
+      //citim pid din fisier
+        read(fd_pid, buf_pid, sizeof(buf_pid) - 1);
+        close(fd_pid);
+        pid_t pid_monitor = (pid_t)atoi(buf_pid);
+        if (kill(pid_monitor, SIGUSR1) == -1) {
+            scrie_in_log("add - notificare monitor esuata");
+        } else {
+            scrie_in_log("add - monitor notificat cu succes");
+        }
+    }
 }
 
 void comanda_list()
@@ -651,7 +671,7 @@ void comanda_remove_district()
     pid_t pid = fork();
 
      if (pid == 0) {
-        // suntem in COPIL
+        // suntem in COPIL --> adica copia facuta cu fork
         // inlocuim procesul cu comanda rm -rf <district>
         char *args[] = {"rm", "-rf", district, NULL};
         execvp("rm", args); // inlocurieste programul curent cu un program nou
@@ -911,5 +931,6 @@ int main(int argc, char* argv[]){
   ./city_manager --role inspector --user bob --filter downtown 'severity:>=:2'
   ./city_manager --role manager --user alice --update_threshold downtown 2
   ./city_manager --role manager --user alice --remove_report downtown 1
-
+  
+*/
   
