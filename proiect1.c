@@ -819,15 +819,16 @@ void comanda_filter(int nr_conditii, char **conditii)
     scrie_in_log(log_msg);
 }
 
-void afiseaza_utilizare(const char *prog)
-{
-    fprintf(stderr,
+void afiseaza_utilizare(const char *prog){
+  //am adaugat in faza 2 si remove district.
+  fprintf(stderr,
         "Utilizare: %s --role <manager|inspector> --user <nume> <comanda> [args]\n"
         "Comenzi:\n"
         "  --add              <district>\n"
         "  --list             <district>\n"
         "  --view             <district> <id>\n"
         "  --remove_report    <district> <id>\n"
+        "  --remove_district  <district>\n"
         "  --update_threshold <district> <valoare>\n"
         "  --filter           <district> <cond1> [cond2 ...]\n"
         "Format conditie: camp:operator:valoare\n"
@@ -874,6 +875,13 @@ int main(int argc, char* argv[]){
       strncpy(district, argv[++i], MAX-1);
       arg_extra = i + 1;
     }
+
+    //pt functia noua de remove district din faza 2
+    else if (strcmp(argv[i], "--remove_district") == 0 && i+1 < argc) {
+    strncpy(comanda, "remove_district", MAX-1);
+    strncpy(district, argv[++i], MAX-1);
+    arg_extra = i + 1;
+}
   }
 
   //Verifică că utilizatorul a dat toate argumentele obligatorii și că rolul e valid.
@@ -912,6 +920,10 @@ int main(int argc, char* argv[]){
     if (nr <= 0) { fprintf(stderr, "EROARE: lipseste conditia.\n"); return 1; }
     comanda_filter(nr, argv + arg_extra);
   }
+  //rurale la functia de remove district din blocul 2.
+   else if (strcmp(comanda, "remove_district") == 0) {
+    comanda_remove_district();
+}
 
   return 0;
 }
@@ -934,3 +946,11 @@ int main(int argc, char* argv[]){
   
 */
   
+//faza 2:
+
+/* am construit un nou district
+   ./city_manager --role manager --user alice --add testdistrict
+
+   //si il sterg pe asta
+   ./city_manager --role manager --user alice --remove_district testdistrict
+*/
