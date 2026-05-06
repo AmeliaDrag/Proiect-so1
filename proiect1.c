@@ -622,6 +622,57 @@ void comanda_update_threshold(int valoare_noua)
     scrie_in_log(mesaj_log);
 }
 
+//functia noua din faza 2. functia de remove district
+void comanda_remove_district()
+{
+    if (strcmp(role, "manager") != 0) {
+        fprintf(stderr, "ACCES REFUZAT: Doar managerul poate sterge un district.\n"); 
+        exit(EXIT_FAILURE);
+    }
+
+     struct stat st;
+    if (stat(district, &st) == -1) {
+        fprintf(stderr, "EROARE: Districtul '%s' nu exista.\n", district);
+        exit(EXIT_FAILURE);
+    }
+
+     // stergem mai intai symlink-ul active_reports-<district>
+    char nume_symlink[MAX_PATH];
+    snprintf(nume_symlink, MAX_PATH, "active_reports-%s", district);
+    // unlink() sterge legatura simbolica, nu destinatia ei
+    if (unlink(nume_symlink) == -1) {
+        fprintf(stderr, "ATENTIE: Nu am putut sterge symlink-ul '%s': %s\n",
+                nume_symlink, strerror(errno));
+    } else {
+        printf("Symlink '%s' sters.\n", nume_symlink);
+    }
+
+    //facem o copie
+    pid_t pid = fork();
+
+     if (pid == 0) {
+        // suntem in COPIL
+        // inlocuim procesul cu comanda rm -rf <district>
+        char *args[] = {"rm", "-rf", district, NULL};
+        execvp("rm", args); // inlocurieste programul curent cu un program nou
+
+        // daca ajungem aici, execvp a esuat
+        perror("Eroare execvp");
+        _exit(1);
+
+    } else if (pid > 0) {
+        // suntem in PARINTE
+        // asteptam copilul sa termine inainte sa continuam
+        wait(NULL);
+        printf("Districtul '%s' a fost sters complet.\n", district);
+
+    } else {
+        // fork() a esuat
+        perror("Eroare fork");
+        exit(EXIT_FAILURE);
+    }
+}
+
 int parse_condition(const char *input, char *field, char *op, char *value) {
     if (!input) return 0;
 
