@@ -1,5 +1,8 @@
+#define _POSIX_C_SOURCE 200809L //îi spune compilatorului să activeze funcțiile din standardul POSIX 2008. functti ca sigation
 #include<stdio.h>
+#include<stdlib.h>
 #include<string.h>
+#include <signal.h>   // pentru struct sigaction, SIGUSR1, SIGINT
 #include <unistd.h> // luam getpid()
 #include <signal.h>
 #include <fcntl.h> // biblioteca ce include  O_WRONLY | O_CREAT | O_TRUNC
@@ -8,7 +11,7 @@
 
 // Fisierul unde salvam PID-ul monitorului
 #define PID_FILE ".monitor_pid"
-#define _POSIX_C_SOURCE 200809L //îi spune compilatorului să activeze funcțiile din standardul POSIX 2008. functti ca sigation
+
 
 void handler_sigusr1(int sig)
 {
