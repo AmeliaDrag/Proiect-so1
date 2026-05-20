@@ -1,1 +1,183 @@
-//un pipe este un canal de comunicare intre 2 
+//un pipe este un canal de comunicare intre 2
+
+#define _POSIX_C_SOURCE 200809L
+ 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <signal.h>
+ 
+#define MAX      200
+#define MAX_PATH 300
+#define PID_FILE ".monitor_pid"
+ 
+void calculate_scores(int nr_districte, char **districte)
+{
+  printf("=== Raport Workload ===\n\n");
+ 
+  for (int i = 0; i < nr_districte; i++) {
+    //facem pipeul pt 2 districte.
+    int fd[2];
+    if (pipe(fd) == -1) {
+      perror("Eroare pipe");
+      continue;
+    }
+ 
+    pid_t pid = fork(); //practic dublura pt pid
+
+  
+ 
+    if (pid == 0) {
+      // leg dintre COPIL - scorer 
+ 
+      // Inchidem capatul de citire - copilul doar scrie
+      //Un proces nu poate să scrie și să citească simultan din același pipe în mod eficient (s-ar bloca la scriere înainte să ajungă la linia de citire).
+      close(fd[0]);
+ 
+      // dup2 redirecteaza stdout catre capatul de scriere al pipe-ului	 tot ce scorer-ul scrie cu printf() ajunge in pipe, nu pe ecran 
+      dup2(fd[1], STDOUT_FILENO);
+      close(fd[1]);  // inchidem originalul dupa redirectare 
+ 
+      // Rulam scorer-ul cu numele districtului ca argument 
+      char *args[] = {"./scorer", districte[i], NULL};
+      execvp("./scorer", args);
+ 
+      // Daca ajungem aici, execvp a esuat 
+      perror("Eroare execvp scorer");
+      //_exit(1) e mai okay decat exit(1) in cazul asta ca nu icearca sa goleasca bifferele in copil ceea ce e 
+      _exit(1);
+ 
+    } else if (pid > 0) {
+      //---- PARINTE - city_hub ---- 
+ 
+      //Inchidem capatul de scriere - parintele doar citeste 
+      close(fd[1]);
+ 
+      // Citim rezultatul din pipe linie cu linie 
+      char buf[1024];
+      ssize_t n; //signed cu semn pe biti folosum ssize_T
+ 
+      // read() citeste blocuri de bytes din pipe 
+      while ((n = read(fd[0], buf, sizeof(buf) - 1)) > 0) {
+	buf[n] = '\0';
+	//Afisam ce am primit 
+	printf("%s", buf);
+      }
+      close(fd[0]);
+ 
+      // Asteptam scorerul sa termine 
+      wait(NULL);
+ 
+      // Linie de separare intre districte 
+      printf("\n");
+ 
+    } else {
+      perror("Eroare fork");
+    }
+  }
+ 
+  printf("=== Sfarsit Raport ===\n");
+}
+
+void start_monitor()
+{
+  //Cream pipe-ul inainte de fork()
+  //  fd[0] = citire (hub_mon citeste)
+  //  fd[1] = scriere (monitor scrie) 
+    int fd[2];
+    if (pipe(fd) == -1) {
+        perror("Eroare pipe");
+        return;
+    }
+ 
+    // fork() pentru hub_mon
+    pid_t pid_hub_mon = fork();
+ 
+    if (pid_hub_mon == 0) {
+      //leg COPIL = hub_mon 
+ 
+      //hub_mon nu scrie in pipe - inchide capatul de scriere 
+        close(fd[1]);
+ 
+        //Verificam daca monitorul ruleaza deja 
+        struct stat st;
+        if (stat(PID_FILE, &st) == 0) {
+	  // Fisierul .monitor_pid exista - monitorul ruleaza deja 
+            char buf_pid[32];
+            int fd_pid = open(PID_FILE, O_RDONLY);
+            if (fd_pid != -1) {
+                read(fd_pid, buf_pid, sizeof(buf_pid) - 1);
+                close(fd_pid);
+                // Trimitem eroare prin pipe catre city_hub 
+                char errmsg[128];
+                snprintf(errmsg, sizeof(errmsg),
+                    "ERROR: Monitor deja rulează cu PID=%s\n", buf_pid);
+                write(fd[0], errmsg, strlen(errmsg));
+            }
+            close(fd[0]);
+            _exit(1);
+        }
+ 
+        //Monitorul nu ruleaza - il pornim 
+        // fork() pentru monitor_reports */
+        pid_t pid_mon = fork();
+ 
+        if (pid_mon == 0) {
+	  // NEPOT = monitor_reports 
+ 
+	  // Redirectam stdout-ul monitorului catre pipe 
+            dup2(fd[1], STDOUT_FILENO);
+ 
+            // Inchidem fd[0] - monitorul nu citeste din pipe
+            close(fd[0]);
+ 
+            // Pornim monitor_reports 
+            char *args[] = {"./monitor_reports", NULL};
+            execvp("./monitor_reports", args);
+ 
+            perror("Eroare execvp monitor_reports");
+            _exit(1);
+ 
+        } else if (pid_mon > 0) {
+	  // hub_mon citeste din pipe
+	  close(fd[1]);  // hub_mon nu scrie 
+ 
+            char buf[256];
+            ssize_t n;
+            // Citim mesajele monitorului si le afisam 
+            while ((n = read(fd[0], buf, sizeof(buf) - 1)) > 0) {
+                buf[n] = '\0';
+                printf("%s", buf);
+                fflush(stdout);
+            }
+            close(fd[0]);
+            wait(NULL);
+ 
+        } else {
+            perror("Eroare fork monitor");
+            close(fd[0]);
+            _exit(1);
+        }
+ 
+        _exit(0);
+ 
+    } else if (pid_hub_mon > 0) {
+      // ---- PARINTE = city_hub ---- 
+        close(fd[0]);
+        close(fd[1]);
+        printf("Monitor pornit in fundal (hub_mon PID=%d)\n", pid_hub_mon);
+ 
+    } else {
+        perror("Eroare fork hub_mon");
+    }
+}
+ 
+
+int main(){
+  return 0;
+}
