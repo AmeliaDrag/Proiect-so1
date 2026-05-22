@@ -176,8 +176,76 @@ void start_monitor()
         perror("Eroare fork hub_mon");
     }
 }
- 
 
-int main(){
-  return 0;
+void afiseaza_comenzi()
+{
+    printf("Comenzi disponibile:\n");
+    printf("  start_monitor\n");
+    printf("  calculate_scores <district1> [district2 ...]\n");
+    printf("  exit\n");
+}
+ 
+int main()
+{
+    printf("=== city_hub - Interfata de management ===\n");
+    afiseaza_comenzi();
+ 
+    char linie[1024];
+ 
+    //citim comenzi de la tastatura 
+    while (1) {
+        printf("\ncity_hub> ");
+        fflush(stdout);
+ 
+        // Citim o linie de la tastatura 
+        if (fgets(linie, sizeof(linie), stdin) == NULL) {
+            printf("Iesire city_hub.\n");
+            break;
+        }
+ 
+        //Eliminam newline-ul de la sfarsit 
+        size_t len = strlen(linie);
+        if (len > 0 && linie[len - 1] == '\n')
+            linie[len - 1] = '\0';
+ 
+        //Ignoram liniile goale 
+        if (strlen(linie) == 0)
+	  continue;
+ 
+        // Parsam comanda - primul cuvant e comanda, restul sunt argumente 
+        char *token = strtok(linie, " ");
+        if (!token)
+	  continue;
+ 
+        if (strcmp(token, "exit") == 0) {
+            printf("Iesire city_hub.\n");
+            break;
+ 
+        } else if (strcmp(token, "start_monitor") == 0) {
+            start_monitor();
+ 
+        } else if (strcmp(token, "calculate_scores") == 0) {
+	  //Colectam toate districtele din argumente 
+            char *districte[50];
+            int nr = 0;
+ 
+            char *arg = strtok(NULL, " ");
+            while (arg != NULL && nr < 50) {
+                districte[nr++] = arg;
+                arg = strtok(NULL, " ");
+            }
+ 
+            if (nr == 0) {
+                fprintf(stderr, "EROARE: calculate_scores necesita cel putin un district.\n");
+            } else {
+                calculate_scores(nr, districte);
+            }
+ 
+        } else {
+            fprintf(stderr, "Comanda necunoscuta: '%s'\n", token);
+            afiseaza_comenzi();
+        }
+    }
+ 
+    return 0;
 }
