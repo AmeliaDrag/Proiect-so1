@@ -2,3 +2,7 @@
 [2026-04-25 23:47:52] role=manager user=alice action=view district=downtown report_id=1
 [2026-04-25 23:47:52] role=manager user=alice action=update_threshold district=downtown valoare=2
 [2026-04-25 23:47:52] role=manager user=alice action=remove_report district=downtown report_id=1
+[2026-05-22 22:57:44] role=manager user=alice action=add district=downtown report_id=1
+[2026-05-22 22:57:44] role=manager user=alice action=add - monitor nu ruleaza
+[2026-05-22 22:58:01] role=manager user=alice action=add district=downtown report_id=2
+[2026-05-22 22:58:01] role=manager user=alice action=add - monitor nu ruleaza

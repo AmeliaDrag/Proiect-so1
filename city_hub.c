@@ -86,96 +86,89 @@ void calculate_scores(int nr_districte, char **districte)
 
 void start_monitor()
 {
-  //Cream pipe-ul inainte de fork()
-  //  fd[0] = citire (hub_mon citeste)
-  //  fd[1] = scriere (monitor scrie) 
+    // Verificam DIRECT in city_hub daca monitorul ruleaza deja
+    // daca .monitor_pid exista, monitorul deja ruleaza
+    struct stat st;
+    if (stat(PID_FILE, &st) == 0) {
+        char buf_pid[32];
+        memset(buf_pid, 0, sizeof(buf_pid));
+        int fd_pid = open(PID_FILE, O_RDONLY);
+        if (fd_pid != -1) {
+            read(fd_pid, buf_pid, sizeof(buf_pid) - 1);
+            close(fd_pid);
+        }
+        printf("ERROR: Monitor deja ruleaza cu PID=%s\n", buf_pid);
+        return; // iesim fara sa cream hub_mon
+    }
+
+    // Cream pipe-ul inainte de fork
+    // fd[0] = capatul de citire
+    // fd[1] = capatul de scriere
     int fd[2];
     if (pipe(fd) == -1) {
         perror("Eroare pipe");
         return;
     }
- 
+
     // fork() pentru hub_mon
     pid_t pid_hub_mon = fork();
- 
+
     if (pid_hub_mon == 0) {
-      //leg COPIL = hub_mon 
- 
-      //hub_mon nu scrie in pipe - inchide capatul de scriere 
+        // COPIL = hub_mon
+        // hub_mon nu scrie in pipe - inchide capatul de scriere
         close(fd[1]);
- 
-        //Verificam daca monitorul ruleaza deja 
-        struct stat st;
-        if (stat(PID_FILE, &st) == 0) {
-	  // Fisierul .monitor_pid exista - monitorul ruleaza deja 
-            char buf_pid[32];
-            int fd_pid = open(PID_FILE, O_RDONLY);
-            if (fd_pid != -1) {
-                read(fd_pid, buf_pid, sizeof(buf_pid) - 1);
-                close(fd_pid);
-                // Trimitem eroare prin pipe catre city_hub 
-                char errmsg[128];
-                snprintf(errmsg, sizeof(errmsg),
-                    "ERROR: Monitor deja rulează cu PID=%s\n", buf_pid);
-                write(fd[0], errmsg, strlen(errmsg));
-            }
-            close(fd[0]);
-            _exit(1);
-        }
- 
-        //Monitorul nu ruleaza - il pornim 
-        // fork() pentru monitor_reports */
+
+        // fork() pentru monitor_reports
         pid_t pid_mon = fork();
- 
+
         if (pid_mon == 0) {
-	  // NEPOT = monitor_reports 
- 
-	  // Redirectam stdout-ul monitorului catre pipe 
+            // NEPOT = monitor_reports
+            // redirectam stdout-ul monitorului catre pipe cu dup2
+            // tot ce monitor scrie cu printf ajunge in pipe
             dup2(fd[1], STDOUT_FILENO);
- 
-            // Inchidem fd[0] - monitorul nu citeste din pipe
-            close(fd[0]);
- 
-            // Pornim monitor_reports 
+            close(fd[0]); // monitorul nu citeste din pipe
+
             char *args[] = {"./monitor_reports", NULL};
             execvp("./monitor_reports", args);
- 
+
+            // daca ajungem aici execvp a esuat
             perror("Eroare execvp monitor_reports");
             _exit(1);
- 
+
         } else if (pid_mon > 0) {
-	  // hub_mon citeste din pipe
-	  close(fd[1]);  // hub_mon nu scrie 
- 
+            // hub_mon citeste din pipe mesajele monitorului si le afiseaza
+            close(fd[1]); // hub_mon nu scrie
+
             char buf[256];
             ssize_t n;
-            // Citim mesajele monitorului si le afisam 
             while ((n = read(fd[0], buf, sizeof(buf) - 1)) > 0) {
                 buf[n] = '\0';
                 printf("%s", buf);
                 fflush(stdout);
             }
             close(fd[0]);
-            wait(NULL);
- 
+            wait(NULL); // asteptam monitorul sa termine
+
         } else {
             perror("Eroare fork monitor");
             close(fd[0]);
             _exit(1);
         }
- 
+
         _exit(0);
- 
+
     } else if (pid_hub_mon > 0) {
-      // ---- PARINTE = city_hub ---- 
+        // PARINTE = city_hub
+        // city_hub nu foloseste pipe-ul - inchidem ambele capete
         close(fd[0]);
         close(fd[1]);
         printf("Monitor pornit in fundal (hub_mon PID=%d)\n", pid_hub_mon);
- 
+
     } else {
         perror("Eroare fork hub_mon");
     }
 }
+
 
 void afiseaza_comenzi()
 {
